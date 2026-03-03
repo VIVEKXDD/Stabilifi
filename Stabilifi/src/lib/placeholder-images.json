@@ -1,0 +1,28 @@
+{
+  "placeholderImages": [
+    {
+      "id": "how-it-works-1",
+      "description": "A person entering data into a form on a modern interface.",
+      "imageUrl": "https://images.unsplash.com/photo-1487611459768-bd414656ea10?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxkYXRhJTIwZW50cnl8ZW58MHx8fHwxNzcyMzg3NzI3fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "data entry"
+    },
+    {
+      "id": "how-it-works-2",
+      "description": "An abstract representation of AI processing data, with nodes and connections.",
+      "imageUrl": "https://images.unsplash.com/photo-1677442135703-1787eea5ce01?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxhcnRpZmljaWFsJTIwaW50ZWxsaWdlbmNlfGVufDB8fHx8MTc3MjMyMzgyNXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "artificial intelligence"
+    },
+    {
+      "id": "how-it-works-3",
+      "description": "A dashboard showing a risk score and a checklist of actions.",
+      "imageUrl": "https://images.unsplash.com/photo-1551288049-bebda4e38f71?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxmaW5hbmNpYWwlMjBkYXNoYm9hcmR8ZW58MHx8fHwxNzcyMzg0NDkzfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "financial dashboard"
+    },
+    {
+      "id": "hero-image",
+      "description": "A modern, abstract image representing financial technology and data visualization.",
+      "imageUrl": "https://images.unsplash.com/photo-1726137570713-2458b137684f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxmaW5hbmNpYWwlMjB0ZWNobm9sb2d5fGVufDB8fHx8MTc3MjQyMjA1Nnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "financial technology"
+    }
+  ]
+}
