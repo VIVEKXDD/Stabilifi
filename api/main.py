@@ -32,8 +32,8 @@ app.add_middleware(
 print("Starting Stabilifi API Server...")
 try:
     index_generator = StressIndexGenerator()
-    liquidity_explainer = StressExplainer('models/liquidity_stress_(paysim)_best_model.pkl')
-    credit_explainer = StressExplainer('models/credit_stress_(bankchurners)_best_model.pkl')
+    liquidity_explainer = StressExplainer('../models/liquidity_stress_(paysim)_best_model.pkl')
+    credit_explainer = StressExplainer('../models/credit_stress_(bankchurners)_best_model.pkl')
     suggestion_engine = SuggestionEngine()
     print("All ML modules loaded successfully.")
 except Exception as e:
