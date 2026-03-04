@@ -15,4 +15,6 @@ shap>=0.43.0
 # API Backend
 fastapi>=0.104.0
 uvicorn[standard]>=0.23.0
+
 pydantic>=2.4.0
+gunicorn
