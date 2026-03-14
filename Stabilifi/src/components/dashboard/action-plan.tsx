@@ -1,75 +1,75 @@
 'use client';
 
-import { useEffect, useState } from "react";
-import { getDetailedActionPlan } from "@/app/dashboard/actions";
-import { Loader2 } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-
-interface PredictionResponse {
-  category: string;
-  final_stress_score: number;
-  top_liquidity_factor: string;
-  top_credit_factor: string;
-  suggestions: string[];
-}
-
-interface ActionStep {
-    title: string;
-    content: string;
-}
+import { Shield, ShieldCheck, TrendingDown } from "lucide-react";
+import { useMemo } from "react";
 
 interface ActionPlanProps {
-  prediction: PredictionResponse;
+  recommendations: string[];
 }
 
-export default function ActionPlan({ prediction }: ActionPlanProps) {
-  const [detailedPlan, setDetailedPlan] = useState<ActionStep[] | null>(null);
-  const [loading, setLoading] = useState(true);
+export default function ActionPlan({ recommendations }: ActionPlanProps) {
 
-  useEffect(() => {
-    const fetchPlan = async () => {
-      setLoading(true);
-      const plan = await getDetailedActionPlan({
-        stressCategory: prediction.category,
-        finalStressScore: prediction.final_stress_score,
-        topLiquidityFactor: prediction.top_liquidity_factor,
-        topCreditFactor: prediction.top_credit_factor,
-        suggestions: prediction.suggestions,
-      });
-      setDetailedPlan(plan);
-      setLoading(false);
-    };
+  const { immediateActions, fraudProtection } = useMemo(() => {
+    const immediate: string[] = [];
+    const fraud: string[] = [];
 
-    fetchPlan();
-  }, [prediction]);
+    recommendations.forEach(rec => {
+      const lowerRec = rec.toLowerCase();
+      if (lowerRec.includes('fraud') || lowerRec.includes('alert') || lowerRec.includes('monitor') || lowerRec.includes('suspicious')) {
+        fraud.push(rec);
+      } else {
+        immediate.push(rec);
+      }
+    });
 
-  if (loading) {
-    return (
-      <div className="flex items-center text-muted-foreground">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        Generating your detailed plan...
-      </div>
-    );
-  }
+    return { immediateActions: immediate, fraudProtection: fraud };
+  }, [recommendations]);
 
-  if (!detailedPlan || detailedPlan.length === 0) {
-      return <p>Could not load detailed plan.</p>;
+
+  if (!recommendations || recommendations.length === 0) {
+      return <p className="text-muted-foreground">No specific actions recommended at this time.</p>;
   }
 
   return (
-    <Accordion type="single" collapsible className="w-full" defaultValue="item-0">
-      {detailedPlan.map((step, index) => (
-        <AccordionItem value={`item-${index}`} key={index}>
-          <AccordionTrigger>{step.title}</AccordionTrigger>
-          <AccordionContent>
-            <div className="prose prose-sm dark:prose-invert max-w-none text-foreground">
-                {step.content.split('\n').filter(p => p.trim() !== '').map((paragraph, pIndex) => (
-                    <p key={pIndex} className="mb-2 last:mb-0">{paragraph}</p>
+    <div className="w-full space-y-6">
+      {immediateActions.length > 0 && (
+        <div>
+            <h3 className="font-semibold flex items-center gap-2 mb-2">
+                <TrendingDown className="w-5 h-5 text-amber-500" />
+                Immediate Actions
+            </h3>
+            <Accordion type="single" collapsible className="w-full" defaultValue="item-0">
+                {immediateActions.map((rec, index) => (
+                    <AccordionItem value={`item-${index}`} key={`immediate-${index}`}>
+                    <AccordionTrigger>{rec}</AccordionTrigger>
+                    <AccordionContent>
+                        <div className="prose prose-sm dark:prose-invert max-w-none text-foreground">
+                            <p>Detailed guidance on how to effectively implement this recommendation will be provided here. This includes breaking down the step, explaining its importance, and offering resources.</p>
+                        </div>
+                    </AccordionContent>
+                    </AccordionItem>
                 ))}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-      ))}
-    </Accordion>
+            </Accordion>
+        </div>
+      )}
+
+      {fraudProtection.length > 0 && (
+        <div>
+            <h3 className="font-semibold flex items-center gap-2 mb-2">
+                <Shield className="w-5 h-5 text-rose-500" />
+                Fraud Protection
+            </h3>
+            <ul className="space-y-2">
+                {fraudProtection.map((rec, index) => (
+                    <li key={`fraud-${index}`} className="flex items-start gap-3">
+                        <ShieldCheck size={18} className="text-emerald-500 mt-1 flex-shrink-0" />
+                        <span>{rec}</span>
+                    </li>
+                ))}
+            </ul>
+        </div>
+      )}
+    </div>
   );
 }

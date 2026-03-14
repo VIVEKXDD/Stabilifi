@@ -2,22 +2,24 @@
 
 import { RadialBarChart, RadialBar, PolarAngleAxis, ResponsiveContainer } from 'recharts';
 
-interface RiskGaugeProps {
+interface FinancialHealthGaugeProps {
   score: number;
 }
 
-export default function RiskGauge({ score }: RiskGaugeProps) {
+export default function FinancialHealthGauge({ score }: FinancialHealthGaugeProps) {
   const getColor = (value: number) => {
-    if (value <= 33) return '#32B36D'; // Emerald
-    if (value <= 66) return '#F2A300'; // Amber
-    return '#E55B77'; // Rose
+    if (value >= 66) return '#32B36D'; // Healthy - Green
+    if (value >= 33) return '#F2A300'; // Moderate - Amber
+    return '#E55B77'; // Critical - Rose
   };
-
-  const color = getColor(score);
-  const data = [{ name: 'score', value: score, fill: color }];
+  
+  // Invert score for gauge display (higher score is better)
+  const displayScore = Math.round(100 - score);
+  const color = getColor(displayScore);
+  const data = [{ name: 'score', value: displayScore, fill: color }];
 
   return (
-    <div className="relative h-64 w-full">
+    <div className="relative h-48 w-full -mt-4">
       <ResponsiveContainer width="100%" height="100%">
         <RadialBarChart
           innerRadius="70%"
@@ -26,6 +28,8 @@ export default function RiskGauge({ score }: RiskGaugeProps) {
           data={data}
           startAngle={180}
           endAngle={0}
+          cx="50%"
+          cy="70%"
         >
           <PolarAngleAxis
             type="number"
@@ -42,9 +46,9 @@ export default function RiskGauge({ score }: RiskGaugeProps) {
           />
         </RadialBarChart>
       </ResponsiveContainer>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
+      <div className="absolute inset-0 flex flex-col items-center justify-center top-8">
         <span className="text-5xl font-bold" style={{ color }}>
-          {score}
+          {displayScore}
         </span>
         <span className="text-sm text-muted-foreground">out of 100</span>
       </div>

@@ -1,83 +1,46 @@
 import shap
-import numpy as np
-import pandas as pd
 import joblib
+import pandas as pd
+import numpy as np
 
 class StressExplainer:
-    def __init__(self, model_path: str):
-        """
-        Initializes the explainer with a trained Tree-based model (Random Forest or XGBoost).
-        """
-        print(f"Loading model from {model_path} for SHAP explainability...")
+    def __init__(self, model_path):
+        print(f"Loading model from {model_path} for Explainability...")
+        self.model = joblib.load(model_path)
+        self.explainer = None
+        self.model_type = str(type(self.model)).lower()
+        
         try:
-            self.model = joblib.load(model_path)
-            # TreeExplainer is optimized for XGBoost, LightGBM, and Random Forest
-            self.explainer = shap.TreeExplainer(self.model)
-        except FileNotFoundError as e:
-            print(f"Error loading model: {e}")
-        except Exception as e:
-            print(f"Error initializing SHAP explainer: {e}")
-
-    def get_top_contributing_factors(self, user_features: pd.DataFrame, top_n: int = 3) -> list:
-        """
-        Calculates SHAP values for a specific user and returns the top features 
-        driving the 'High Stress' prediction.
-        """
-        shap_values = self.explainer.shap_values(user_features)
-        
-        # Extract the 1D array of SHAP values specifically for the "High Stress" class
-        if isinstance(shap_values, list):
-            # Random Forest outputs a list of arrays
-            target_class_index = 2 if len(shap_values) > 2 else -1
-            user_shap_values = shap_values[target_class_index][0] 
-        else:
-            # XGBoost outputs a single multi-dimensional numpy array
-            if len(shap_values.shape) == 3:
-                # Multi-class shape: (n_samples, n_features, n_classes)
-                target_class_index = 2 if shap_values.shape[2] > 2 else -1
-                user_shap_values = shap_values[0, :, target_class_index]
+            # If the winning model was a Tree (XGBoost/Random Forest)
+            if 'forest' in self.model_type or 'xgb' in self.model_type:
+                self.explainer = shap.TreeExplainer(self.model)
+                self.is_tree = True
+            # If the winning model was Linear (Logistic Regression)
             else:
-                # Standard binary shape: (n_samples, n_features)
-                user_shap_values = shap_values[0]
+                self.is_tree = False
+                print("Linear model detected. Using coefficient extraction instead of SHAP.")
+        except Exception as e:
+            print(f"Error initializing explainer: {e}")
 
-        # Map the extracted numbers to their feature names
-        feature_names = user_features.columns.tolist()
-        feature_contributions = list(zip(feature_names, user_shap_values))
-        
-        # Sort features by their SHAP value (magnitude of impact) in descending order
-        feature_contributions.sort(key=lambda x: float(x[1]), reverse=True)
-        
-        # Extract the top N feature names that positively pushed the score toward High Stress
-        top_factors = [feature for feature, impact in feature_contributions if float(impact) > 0][:top_n]
-        
-        if not top_factors:
-            top_factors = ["General behavioral patterns"]
+    def get_top_contributing_factors(self, features: pd.DataFrame, top_n=1):
+        try:
+            if not self.is_tree:
+                # Extract Risk Drivers from Logistic Regression coefficients
+                coefs = self.model.coef_[0]
+                feature_importance = pd.Series(np.abs(coefs), index=features.columns)
+                top_factors = feature_importance.nlargest(top_n).index.tolist()
+                return top_factors[0] if top_n == 1 else ", ".join(top_factors)
             
-        return top_factors
-
-if __name__ == "__main__":
-    # Local Testing Example
-    # Ensure you have a trained model saved in the models directory
-    model_file = 'models/liquidity_stress_(paysim)_best_model.pkl'
-    
-    # Dummy feature vector matching the model's expected input
-    dummy_input = pd.DataFrame([{
-        'total_cash_in_obs': 2000, 
-        'total_cash_out_obs': 5500, 
-        'balance_depletion_obs': 3500, 
-        'outgoing_to_incoming_ratio': 2.75
-    }])
-    
-    try:
-        explainer = StressExplainer(model_path=model_file)
-        top_factors = explainer.get_top_contributing_factors(dummy_input, top_n=3)
-        
-        print("\n--- SHAP Explainability Output ---")
-        print(f"Top factors driving the stress score: {top_factors}")
-        
-    except Exception as e:
-        import traceback
-        print(f"\n❌ TEST FAILED. Here is the exact Python error:")
-        print("-" * 40)
-        traceback.print_exc()
-        print("-" * 40)
+            elif self.explainer:
+                # Extract Risk Drivers from Tree models using SHAP
+                shap_values = self.explainer.shap_values(features)
+                vals = shap_values[0] if isinstance(shap_values, list) else shap_values
+                feature_importance = pd.DataFrame(list(zip(features.columns, np.abs(vals[0]))),
+                                                  columns=['col_name', 'feature_importance_vals'])
+                feature_importance.sort_values(by=['feature_importance_vals'], ascending=False, inplace=True)
+                top_factors = feature_importance.head(top_n)['col_name'].tolist()
+                return top_factors[0] if top_n == 1 else ", ".join(top_factors)
+                
+        except Exception as e:
+            print(f"Explainability fallback triggered: {e}")
+            return features.columns[0] # Ultimate safety fallback

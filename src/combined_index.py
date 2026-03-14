@@ -1,76 +1,83 @@
 import joblib
 import pandas as pd
 import numpy as np
+import os
 
-class StressIndexGenerator:
-    def __init__(self, liquidity_model_path='models/liquidity_stress_(paysim)_best_model.pkl', 
-                 credit_model_path='models/credit_stress_(bankchurners)_best_model.pkl'):
-        """
-        Loads the trained machine learning models for inference.
-        """
-        print("Loading trained models for scoring...")
+class FinancialHealthEngine:
+    def __init__(self):
+        print("🧠 Booting up Nexus Financial Health Engine...")
+        
+        # Determine correct path relative to where API is launched
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        model_dir = os.path.join(base_dir, '../models')
+        
         try:
-            self.liquidity_model = joblib.load(liquidity_model_path)
-            self.credit_model = joblib.load(credit_model_path)
-        except FileNotFoundError as e:
-            print(f"Error loading models: {e}. Please ensure train_models.py has been run.")
+            self.credit_model = joblib.load(f'{model_dir}/credit_stress_best_model.pkl')
+            self.liquidity_model = joblib.load(f'{model_dir}/liquidity_stress_best_model.pkl')
+            self.fraud_model = joblib.load(f'{model_dir}/fraud_vulnerability_best_model.pkl')
+            print("✅ All 3 models loaded successfully.")
+        except Exception as e:
+            print(f"⚠️ Error loading models. Check your models folder. Details: {e}")
 
-    def calculate_individual_score(self, model, features: pd.DataFrame) -> float:
-        """
-        Calculates the stress score (0-100) based on the probability of High Stress (Class 2).
-        If the model outputs probability for High Stress, we scale it by 100.
-        """
-        # predict_proba returns an array of probabilities for classes [0, 1, 2]
-        probabilities = model.predict_proba(features)[0]
+    def _convert_to_100_scale(self, model, features, is_binary=False):
+        """Converts raw model probability predictions into a clean 0-100 risk score"""
+        probs = model.predict_proba(features)[0]
         
-        # We extract the probability of Class 2 (High Stress)
-        # If the model only has 2 classes for some reason, we take the last one.
-        high_stress_prob = probabilities[2] if len(probabilities) > 2 else probabilities[-1]
-        
-        # Convert to a 0-100 score
-        return float(high_stress_prob * 100)
-
-    def generate_combined_index(self, user_liquidity_features: pd.DataFrame, user_credit_features: pd.DataFrame) -> dict:
-        """
-        Generates the final stress index and categorizes the user.
-        """
-        # 1. Get individual scores
-        liquidity_score = self.calculate_individual_score(self.liquidity_model, user_liquidity_features)
-        credit_score = self.calculate_individual_score(self.credit_model, user_credit_features)
-        
-        # 2. Apply weighted formula
-        final_index = (0.6 * liquidity_score) + (0.4 * credit_score)
-        
-        # 3. Categorize Risk Level
-        if final_index <= 30:
-            category = "Healthy"
-        elif final_index <= 60:
-            category = "Early Stress"
+        if is_binary:
+            # Fraud Model: [Prob(Healthy), Prob(Fraud)]
+            return float(probs[1] * 100) if len(probs) > 1 else 0.0
         else:
-            category = "High Stress"
-            
-        return {
-            "liquidity_stress_score": round(liquidity_score, 2),
-            "credit_stress_score": round(credit_score, 2),
-            "final_stress_score": round(final_index, 2),
-            "category": category
-        }
+            # Stress Models: [Prob(Healthy), Prob(Early Stress), Prob(High Stress)]
+            if len(probs) == 3:
+                # 50% weight to early stress, 100% weight to high stress
+                return float((probs[1] * 50) + (probs[2] * 100))
+            elif len(probs) == 2:
+                return float(probs[1] * 100)
+            return 0.0
 
-if __name__ == "__main__":
-    # Example Usage for a single user
-    generator = StressIndexGenerator()
-    
-    # Simulating a user's feature vector (these would normally come from your API/Database)
-    # Note: Column names must match exactly what the models were trained on.
-    dummy_liquidity = pd.DataFrame([{
-        'total_cash_in_obs': 5000, 'total_cash_out_obs': 6000, 
-        'balance_depletion_obs': 1000, 'outgoing_to_incoming_ratio': 1.2
-    }])
-    
-    # Adding missing dummy columns required by the model (this will depend on your exact feature matrix)
-    # This is purely for local testing of the script.
-    print("\nTest Run Initialized. (Note: Dummy data requires exact feature matching to execute fully).")
-    
-    # In production, you would call:
-    # result = generator.generate_combined_index(real_liquidity_data, real_credit_data)
-    # print(result)
+    def generate_financial_health_profile(self, liquidity_features, credit_features):
+        """Calculates the final FHS based on your custom algorithm"""
+        
+        # 1. Get component risk scores (0-100 scale)
+        # Note: Fraud uses the liquidity (PaySim) features for its prediction!
+        liquidity_stress_score = self._convert_to_100_scale(self.liquidity_model, liquidity_features)
+        credit_stress_score = self._convert_to_100_scale(self.credit_model, credit_features)
+        fraud_risk_score = self._convert_to_100_scale(self.fraud_model, liquidity_features, is_binary=True)
+        
+        # 2. Apply your FHS Formula!
+        # 100 - (0.4 * Liq + 0.35 * Cred + 0.25 * Fraud)
+        fhs_raw = 100 - ((0.40 * liquidity_stress_score) + 
+                         (0.35 * credit_stress_score) + 
+                         (0.25 * fraud_risk_score))
+                         
+        # Ensure it stays strictly between 0 and 100
+        final_fhs = round(max(0, min(100, fhs_raw)), 1)
+        
+        # 3. Determine Category based on your exact thresholds
+        if final_fhs >= 80:
+            category = "Excellent"
+        elif final_fhs >= 60:
+            category = "Stable"
+        elif final_fhs >= 40:
+            category = "Warning"
+        else:
+            category = "Critical"
+            
+        # 4. Determine text-based Fraud Vulnerability
+        if fraud_risk_score > 60:
+            fraud_status = "High"
+        elif fraud_risk_score > 30:
+            fraud_status = "Moderate"
+        else:
+            fraud_status = "Low"
+
+        return {
+            "financial_health_score": final_fhs,
+            "category": category,
+            "components": {
+                "liquidity_stress": round(liquidity_stress_score, 1),
+                "credit_stress": round(credit_stress_score, 1),
+                "fraud_vulnerability": fraud_status,
+                "fraud_raw_score": round(fraud_risk_score, 1)
+            }
+        }

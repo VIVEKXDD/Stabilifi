@@ -1,16 +1,15 @@
 'use server';
 
-import { generateDetailedActionPlan, GenerateDetailedActionPlanInput, GenerateDetailedActionPlanOutput } from '@/ai/flows/generate-detailed-action-plan';
+import { askFinancialCoach, FinancialCoachInput, FinancialCoachOutput } from '@/ai/flows/financial-coach-flow';
 
-export async function getDetailedActionPlan(input: GenerateDetailedActionPlanInput): Promise<GenerateDetailedActionPlanOutput['detailedActionPlan']> {
+export async function getCoachResponse(input: FinancialCoachInput): Promise<FinancialCoachOutput> {
     try {
-        const result = await generateDetailedActionPlan(input);
-        return result.detailedActionPlan;
+        const result = await askFinancialCoach(input);
+        return result;
     } catch (error) {
-        console.error("Error generating detailed action plan:", error);
-        return [{ 
-            title: "Error Generating Plan", 
-            content: "We couldn't generate a detailed plan at this time. Please focus on the basic suggestions provided." 
-        }];
+        console.error("Error getting coach response:", error);
+        return {
+            response: "I'm sorry, I couldn't process your request at this time. Please try again later."
+        };
     }
 }

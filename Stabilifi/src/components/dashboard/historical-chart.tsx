@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  BarChart, Bar, PieChart, Pie, Cell, Legend
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
 import { getPredictionHistory, type PredictionRecord } from '@/lib/history';
 import { Loader2 } from 'lucide-react';
@@ -13,23 +12,19 @@ interface ChartData {
   timestamp: string;
   score: number;
   category: string;
+  liquidity_stress: number;
+  credit_stress: number;
+  fraud_vulnerability: number;
 }
 
-interface PieChartData {
-    name: string;
-    value: number;
-}
-
-const COLORS = {
-    'Healthy': '#32B36D',
-    'Early Stress': '#F2A300',
-    'High Stress': '#E55B77',
-    'default': '#8884d8'
+const fraudVulnerabilityToNumber = (level: 'Low' | 'Medium' | 'High'): number => {
+  if (level === 'Low') return 1;
+  if (level === 'Medium') return 2;
+  return 3;
 };
 
 export default function HistoricalChart() {
   const [data, setData] = useState<ChartData[]>([]);
-  const [pieData, setPieData] = useState<PieChartData[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -37,23 +32,17 @@ export default function HistoricalChart() {
       setLoading(true);
       const history = getPredictionHistory();
       
-      const formattedHistory = history.map((item: PredictionRecord) => ({
-        score: item.score,
-        timestamp: new Date(item.timestamp).toLocaleDateString(),
-        category: item.category,
-      }));
+      const formattedHistory = history
+        .filter(item => item.components) // Filter out records without a 'components' object
+        .map((item: PredictionRecord) => ({
+          score: item.score,
+          timestamp: new Date(item.timestamp).toLocaleDateString(),
+          category: item.category,
+          liquidity_stress: item.components.liquidity_stress,
+          credit_stress: item.components.credit_stress,
+          fraud_vulnerability: fraudVulnerabilityToNumber(item.components.fraud_vulnerability),
+        }));
       setData(formattedHistory);
-
-      const categoryCounts = history.reduce((acc, item) => {
-        acc[item.category] = (acc[item.category] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-
-      const formattedPieData = Object.keys(categoryCounts).map(key => ({
-        name: key,
-        value: categoryCounts[key]
-      }));
-      setPieData(formattedPieData);
       
       setLoading(false);
     };
@@ -77,35 +66,40 @@ export default function HistoricalChart() {
   }
 
   return (
-    <Tabs defaultValue="trend" className="w-full">
+    <Tabs defaultValue="health" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="trend">Trend</TabsTrigger>
-            <TabsTrigger value="scores">Scores</TabsTrigger>
-            <TabsTrigger value="distribution">Distribution</TabsTrigger>
+            <TabsTrigger value="health">Financial Health</TabsTrigger>
+            <TabsTrigger value="breakdown">Stress Breakdown</TabsTrigger>
+            <TabsTrigger value="fraud">Fraud Risk</TabsTrigger>
         </TabsList>
-        <TabsContent value="trend">
+
+        {/* Financial Health Score Chart */}
+        <TabsContent value="health">
             <div className="h-72 w-full pt-4">
             <ResponsiveContainer>
-                <LineChart data={data} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="timestamp" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} domain={[0, 100]}/>
-                <Tooltip
-                    contentStyle={{
-                    background: 'hsl(var(--background))',
-                    borderColor: 'hsl(var(--border))',
-                    borderRadius: '0.5rem'
-                    }}
-                />
-                <Line type="monotone" dataKey="score" name="Stress Score" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                <LineChart data={data} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="timestamp" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} domain={[0, 100]}/>
+                    <Tooltip
+                        contentStyle={{
+                        background: 'hsl(var(--background))',
+                        borderColor: 'hsl(var(--border))',
+                        borderRadius: '0.5rem'
+                        }}
+                    />
+                    <Legend />
+                    <Line type="monotone" dataKey="score" name="Financial Health Score" stroke="hsl(var(--primary))" strokeWidth={2} activeDot={{ r: 8 }} />
                 </LineChart>
             </ResponsiveContainer>
             </div>
         </TabsContent>
-        <TabsContent value="scores">
+
+        {/* Stress Components Chart */}
+        <TabsContent value="breakdown">
             <div className="h-72 w-full pt-4">
                 <ResponsiveContainer>
-                    <BarChart data={data} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                    <LineChart data={data} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                         <XAxis dataKey="timestamp" stroke="hsl(var(--muted-foreground))" fontSize={12} />
                         <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} domain={[0, 100]} />
@@ -116,53 +110,39 @@ export default function HistoricalChart() {
                                 borderRadius: '0.5rem'
                             }}
                         />
-                        <Bar dataKey="score" name="Stress Score" radius={[4, 4, 0, 0]}>
-                            {data.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={COLORS[entry.category as keyof typeof COLORS] || COLORS.default} />
-                            ))}
-                        </Bar>
-                    </BarChart>
+                        <Legend />
+                        <Line type="monotone" dataKey="liquidity_stress" name="Liquidity Stress" stroke="hsl(var(--chart-1))" strokeWidth={2} />
+                        <Line type="monotone" dataKey="credit_stress" name="Credit Stress" stroke="hsl(var(--chart-2))" strokeWidth={2} />
+                    </LineChart>
                 </ResponsiveContainer>
             </div>
         </TabsContent>
-        <TabsContent value="distribution">
-            <div className="h-72 w-full">
+
+        {/* Fraud Risk Chart */}
+        <TabsContent value="fraud">
+            <div className="h-72 w-full pt-4">
                 <ResponsiveContainer>
-                    <PieChart>
-                        <Pie
-                            data={pieData}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={false}
-                            outerRadius={80}
-                            fill="#8884d8"
-                            dataKey="value"
-                            nameKey="name"
-                            label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
-                                if (percent === 0) return null;
-                                const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-                                const x = cx + radius * Math.cos(-midAngle * (Math.PI / 180));
-                                const y = cy + radius * Math.sin(-midAngle * (Math.PI / 180));
-                                return (
-                                <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central">
-                                    {`${(percent * 100).toFixed(0)}%`}
-                                </text>
-                                );
-                            }}
-                        >
-                            {pieData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={COLORS[entry.name as keyof typeof COLORS] || COLORS.default} />
-                            ))}
-                        </Pie>
+                    <LineChart data={data} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis dataKey="timestamp" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                        <YAxis 
+                            stroke="hsl(var(--muted-foreground))" 
+                            fontSize={12} 
+                            domain={[0, 4]} 
+                            ticks={[1, 2, 3]}
+                            tickFormatter={(value) => ['','Low', 'Medium', 'High'][value]}
+                        />
                         <Tooltip
                             contentStyle={{
                                 background: 'hsl(var(--background))',
                                 borderColor: 'hsl(var(--border))',
                                 borderRadius: '0.5rem'
                             }}
+                            formatter={(value) => ['Low', 'Medium', 'High'][Number(value) - 1]}
                         />
-                        <Legend />
-                    </PieChart>
+                         <Legend />
+                        <Line type="monotone" dataKey="fraud_vulnerability" name="Fraud Vulnerability" stroke="hsl(var(--chart-5))" strokeWidth={2} step="step" />
+                    </LineChart>
                 </ResponsiveContainer>
             </div>
         </TabsContent>
